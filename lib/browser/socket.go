@@ -13,12 +13,11 @@ import (
 
 // A Socket represents a connection to a remote host established by the browser.
 type Socket struct {
-	ws         js.Value
-	buf        bytes.Buffer
-	err        error
-	l          *sync.Mutex
-	c          *sync.Cond
-	connecting chan struct{}
+	ws  js.Value
+	buf bytes.Buffer
+	err error
+	l   *sync.Mutex
+	c   *sync.Cond
 }
 
 // Dial establishes a connection to a remote host with the specified protocol
@@ -29,17 +28,30 @@ func Dial(protocol, path string) (net.Conn, error) {
 	if protocol != "ws" {
 		panic("unsupported protocol: " + protocol)
 	}
+	l := new(sync.Mutex)
+	l.Lock()
+	defer l.Unlock()
+
 	var s *Socket
 	s = &Socket{
-		ws:         js.Global.Get("WebSocket").New(path),
-		connecting: make(chan struct{}),
+		ws: js.Global.Get("WebSocket").New(path),
+		l:  l,
+		c:  sync.NewCond(l),
 	}
-	s.l = new(sync.Mutex)
-	s.c = sync.NewCond(s.l)
-	ocb := js.NewEventCallback(false, false, false, func(d js.Value) {
-		close(s.connecting)
+
+	// Error EventListener
+	ecb := js.NewEventCallback(false, false, false, func(d js.Value) {
+		s.l.Lock()
+		defer s.l.Unlock()
+		// WebSocket produces a simple event with type "error." Information
+		// about the error is printed to the console.
+		errMsg := d.Get("type").String()
+		if s.err == nil {
+			s.err = errors.New(errMsg)
+		}
+		s.c.Broadcast()
 	})
-	s.ws.Set("onopen", js.ValueOf(ocb))
+	s.ws.Set("onerror", js.ValueOf(ecb))
 
 	// Message EventListener
 	mcb := js.NewEventCallback(false, false, false, func(d js.Value) {
@@ -59,17 +71,18 @@ func Dial(protocol, path string) (net.Conn, error) {
 	})
 	s.ws.Set("onmessage", js.ValueOf(mcb))
 
-	// Error EventListener
-	ecb := js.NewEventCallback(false, false, false, func(d js.Value) {
-		s.l.Lock()
-		defer s.l.Unlock()
-		if s.err == nil {
-			s.err = errors.New(d.String())
-		}
+	// Wait for connection
+	connected := false
+	ocb := js.NewEventCallback(false, false, false, func(d js.Value) {
+		println("connected")
+		connected = true
+		s.c.Broadcast()
 	})
-	s.ws.Set("onerror", js.ValueOf(ecb))
-
-	return s, nil
+	s.ws.Set("onopen", js.ValueOf(ocb))
+	for !connected && s.err == nil {
+		s.c.Wait()
+	}
+	return s, s.err
 }
 
 func (s *Socket) Close() error {
@@ -107,30 +120,29 @@ func (s *Socket) RemoteAddr() net.Addr {
 }
 
 func (s *Socket) Read(b []byte) (int, error) {
-	<-s.connecting
 	s.l.Lock()
 	defer s.l.Unlock()
-	for s.buf.Len() == 0 {
+	for s.buf.Len() == 0 && s.err == nil {
 		s.c.Wait()
 	}
-	n, err := s.buf.Read(b)
-	if err != nil {
-		return n, err
+	if s.err != nil {
+		return 0, s.err
 	}
-	return n, s.err
+	return s.buf.Read(b)
 }
 
 func (s *Socket) Write(b []byte) (int, error) {
-	<-s.connecting
-	s.ws.Call("send", b)
-	Every(50*time.Millisecond, func() bool {
-		if s.ws.Get("bufferedAmount").Int() == 0 {
-			return false
-		}
-		return true
-	})
 	s.l.Lock()
 	defer s.l.Unlock()
+	if s.err != nil {
+		return 0, s.err
+	}
+	s.ws.Call("send", b)
+	for s.ws.Get("bufferedAmount").Int() > 0 && s.err == nil {
+		s.l.Unlock()
+		time.Sleep(50 * time.Millisecond)
+		s.l.Lock()
+	}
 	return len(b), s.err
 }
 

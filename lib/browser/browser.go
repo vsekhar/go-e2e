@@ -5,7 +5,6 @@ package browser
 
 import (
 	"syscall/js"
-	"time"
 )
 
 type window struct {
@@ -49,13 +48,6 @@ func Sometime(f func([]js.Value)) func() {
 	cb := js.NewCallback(f)
 	js.ValueOf(cb).Invoke()
 	return cb.Close
-}
-
-// Every calls f repeatedly until it returns false, sleeping each time for interval.
-func Every(interval time.Duration, f func() bool) {
-	for f() {
-		time.Sleep(interval)
-	}
 }
 
 // ServeForever defers to the browser's event loop. The return value exists
