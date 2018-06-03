@@ -13,8 +13,10 @@ func Alert(m string) {
 }
 
 // On registers an event handler on an element
-func On(event, element string, f func(js.Value)) func() {
-	cb := js.NewEventCallback(false, false, false, f)
+func On(event, element string, f func()) func() {
+	cb := js.NewEventCallback(false, false, false, func(js.Value) {
+		f()
+	})
 	js.Global.Get("document").Call("getElementById", element).Call("addEventListener", "click", js.ValueOf(cb))
 	return cb.Close
 }
@@ -25,8 +27,10 @@ func Set(element, property string, value interface{}) {
 }
 
 // Sometime arranges f to be called asynchronously in the future.
-func Sometime(f func([]js.Value)) func() {
-	cb := js.NewCallback(f)
+func Sometime(f func()) func() {
+	cb := js.NewCallback(func(_ []js.Value) {
+		f()
+	})
 	js.ValueOf(cb).Invoke()
 	return cb.Close
 }
