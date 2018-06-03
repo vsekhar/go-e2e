@@ -6,11 +6,10 @@ import (
 	"time"
 
 	"github.com/vsekhar/go-e2e/lib/browser"
+	"github.com/vsekhar/go-e2e/lib/browser/console"
 )
 
 func main() {
-	window := browser.Window()
-	console := browser.Console()
 	console.Info("go main() started")
 
 	// Run some code at some point.

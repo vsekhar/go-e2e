@@ -7,28 +7,9 @@ import (
 	"syscall/js"
 )
 
-type window struct {
-}
-
-func Window() window {
-	return window{}
-}
-
 // Alert opens a modal dialog in the browser with message m.
-func (window) Alert(m string) {
+func Alert(m string) {
 	js.Global.Call("alert", m)
-}
-
-type console struct {
-	c js.Value
-}
-
-func Console() console {
-	return console{c: js.Global.Get("console")}
-}
-
-func (c *console) Info(m string) {
-	c.c.Call("info", m)
 }
 
 // OnClick registers a function to be called when an element is clicked.
