@@ -38,3 +38,7 @@ Start the server:
 ```bash
 $ go run server/server.go -path=client
 ```
+
+# Web client
+
+Navigate to `localhost:8080` in Chrome.
