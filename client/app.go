@@ -62,8 +62,11 @@ func main() {
 	msg := []byte("hello")
 	s.Write(msg)
 	b := make([]byte, len(msg))
-	s.Read(b)
-	println(string(b))
+	_, err = s.Read(b)
+	if err != nil {
+		panic(err)
+	}
+	println("message: " + string(b))
 
 	panic(browser.ServeForever())
 }

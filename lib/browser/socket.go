@@ -3,9 +3,10 @@
 package browser
 
 import (
-	"bufio"
-	"io"
+	"bytes"
+	"errors"
 	"net"
+	"sync"
 	"syscall/js"
 	"time"
 )
@@ -13,11 +14,11 @@ import (
 // A Socket represents a connection to a remote host established by the browser.
 type Socket struct {
 	ws         js.Value
-	r          io.Reader
-	w          io.Writer
-	ch         chan []byte
+	buf        bytes.Buffer
+	err        error
+	l          *sync.Mutex
+	c          *sync.Cond
 	connecting chan struct{}
-	closed     chan struct{}
 }
 
 // Dial establishes a connection to a remote host with the specified protocol
@@ -28,37 +29,54 @@ func Dial(protocol, path string) (net.Conn, error) {
 	if protocol != "ws" {
 		panic("unsupported protocol: " + protocol)
 	}
-	s := &Socket{
+	var s *Socket
+	s = &Socket{
 		ws:         js.Global.Get("WebSocket").New(path),
-		ch:         make(chan []byte, 1),
 		connecting: make(chan struct{}),
-		closed:     make(chan struct{}),
 	}
-	var w io.Writer
-	s.r, w = io.Pipe()
-	s.w = bufio.NewWriter(w)
-
+	s.l = new(sync.Mutex)
+	s.c = sync.NewCond(s.l)
 	ocb := js.NewEventCallback(false, false, false, func(d js.Value) {
 		close(s.connecting)
 	})
 	s.ws.Set("onopen", js.ValueOf(ocb))
 
+	// Message EventListener
 	mcb := js.NewEventCallback(false, false, false, func(d js.Value) {
-		data := BlobToString(d.Get("data"))
-		println("message received: " + data)
-		if _, err := s.w.Write([]byte(data)); err != nil {
-			panic(err)
-		}
+		fr := js.Global.Get("FileReader").New()
+		lcb := js.NewEventCallback(false, false, false, func(js.Value) {
+			// loading done, write to buffered pipe
+			s.l.Lock()
+			defer s.l.Unlock()
+			data := fr.Get("result").String()
+			if _, err := s.buf.Write([]byte(data)); err != nil {
+				panic(err)
+			}
+			s.c.Signal()
+		})
+		fr.Set("onload", js.ValueOf(lcb))
+		fr.Call("readAsText", d.Get("data"))
 	})
 	s.ws.Set("onmessage", js.ValueOf(mcb))
+
+	// Error EventListener
+	ecb := js.NewEventCallback(false, false, false, func(d js.Value) {
+		s.l.Lock()
+		defer s.l.Unlock()
+		if s.err == nil {
+			s.err = errors.New(d.String())
+		}
+	})
+	s.ws.Set("onerror", js.ValueOf(ecb))
+
 	return s, nil
 }
 
 func (s *Socket) Close() error {
 	s.ws.Call("close", 1000 /* normal */)
-	close(s.closed)
-	close(s.ch)
-	return nil
+	s.l.Lock()
+	defer s.l.Unlock()
+	return s.err
 }
 
 type socketAddr struct {
@@ -90,24 +108,30 @@ func (s *Socket) RemoteAddr() net.Addr {
 
 func (s *Socket) Read(b []byte) (int, error) {
 	<-s.connecting
-	return s.r.Read(b)
+	s.l.Lock()
+	defer s.l.Unlock()
+	for s.buf.Len() == 0 {
+		s.c.Wait()
+	}
+	n, err := s.buf.Read(b)
+	if err != nil {
+		return n, err
+	}
+	return n, s.err
 }
 
-func (s *Socket) waitUntilSent() {
+func (s *Socket) Write(b []byte) (int, error) {
+	<-s.connecting
+	s.ws.Call("send", b)
 	Every(50*time.Millisecond, func() bool {
 		if s.ws.Get("bufferedAmount").Int() == 0 {
 			return false
 		}
 		return true
 	})
-}
-
-func (s *Socket) Write(b []byte) (int, error) {
-	<-s.connecting
-	s.waitUntilSent()
-	s.ws.Call("send", b)
-	s.waitUntilSent()
-	return len(b), nil
+	s.l.Lock()
+	defer s.l.Unlock()
+	return len(b), s.err
 }
 
 func (*Socket) SetDeadline(time.Time) error {
