@@ -19,8 +19,8 @@ func main() {
 	defer done()
 
 	// Show modal alert when alert button is pressed.
-	done = browser.OnClick("alert", func(e js.Value) {
-		window.Alert("alert button pressed")
+	done = browser.On("click", "alert", func(e js.Value) {
+		browser.Alert("alert button pressed")
 	})
 	defer done()
 
@@ -48,7 +48,7 @@ func main() {
 	defer close(incCh)
 
 	// Increment counter when increment button is pressed.
-	done = browser.OnClick("increment", func(e js.Value) {
+	done = browser.On("click", "increment", func(e js.Value) {
 		incCh <- struct{}{}
 	})
 	defer done()

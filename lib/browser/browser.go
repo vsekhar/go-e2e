@@ -12,10 +12,10 @@ func Alert(m string) {
 	js.Global.Call("alert", m)
 }
 
-// OnClick registers a function to be called when an element is clicked.
-func OnClick(id string, f func(js.Value)) func() {
+// On registers an event handler on an element
+func On(event, element string, f func(js.Value)) func() {
 	cb := js.NewEventCallback(false, false, false, f)
-	js.Global.Get("document").Call("getElementById", id).Call("addEventListener", "click", js.ValueOf(cb))
+	js.Global.Get("document").Call("getElementById", element).Call("addEventListener", "click", js.ValueOf(cb))
 	return cb.Close
 }
 
