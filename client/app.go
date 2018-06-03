@@ -11,17 +11,16 @@ import (
 func main() {
 	console.Info("go main() started")
 
-	// Run some code at some point.
-	done := browser.Sometime(func() {
+	// Run some code asynchronously.
+	browser.Sometime(func() {
 		println("browser.Sometime callback")
 	})
-	defer done()
 
 	// Show modal alert when alert button is pressed.
-	done = browser.On("click", "alert", func() {
+	done := browser.On("click", "alert", func() {
 		browser.Alert("alert button pressed")
 	})
-	defer done()
+	defer done() // cleanup event handler when it is no longer needed.
 
 	// Increment the clock.
 	console.Info("starting clock goroutine")

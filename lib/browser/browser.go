@@ -26,13 +26,14 @@ func Set(element, property string, value interface{}) {
 	js.Global.Get("document").Call("getElementById", element).Set(property, js.ValueOf(value))
 }
 
-// Sometime arranges f to be called asynchronously in the future.
-func Sometime(f func()) func() {
-	cb := js.NewCallback(func(_ []js.Value) {
+// Sometime arranges f to be called asynchronously.
+func Sometime(f func()) {
+	var cb js.Callback
+	cb = js.NewCallback(func(_ []js.Value) {
 		f()
+		cb.Close()
 	})
 	js.ValueOf(cb).Invoke()
-	return cb.Close
 }
 
 // ServeForever defers to the browser's event loop. The return value exists
