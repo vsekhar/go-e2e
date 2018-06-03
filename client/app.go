@@ -2,28 +2,25 @@ package main
 
 import (
 	"fmt"
-	"syscall/js"
 	"time"
 
 	"github.com/vsekhar/go-e2e/lib/browser"
+	"github.com/vsekhar/go-e2e/lib/browser/console"
 )
 
 func main() {
-	window := browser.Window()
-	console := browser.Console()
 	console.Info("go main() started")
 
-	// Run some code at some point.
-	done := browser.Sometime(func(_ []js.Value) {
+	// Run some code asynchronously.
+	browser.Sometime(func() {
 		println("browser.Sometime callback")
 	})
-	defer done()
 
 	// Show modal alert when alert button is pressed.
-	done = browser.OnClick("alert", func(e js.Value) {
-		window.Alert("alert button pressed")
+	done := browser.On("click", "alert", func() {
+		browser.Alert("alert button pressed")
 	})
-	defer done()
+	defer done() // cleanup event handler when it is no longer needed.
 
 	// Increment the clock.
 	console.Info("starting clock goroutine")
@@ -49,7 +46,7 @@ func main() {
 	defer close(incCh)
 
 	// Increment counter when increment button is pressed.
-	done = browser.OnClick("increment", func(e js.Value) {
+	done = browser.On("click", "increment", func() {
 		incCh <- struct{}{}
 	})
 	defer done()

@@ -74,7 +74,8 @@ func Dial(protocol, path string) (net.Conn, error) {
 	// Wait for connection
 	connected := false
 	ocb := js.NewEventCallback(false, false, false, func(d js.Value) {
-		println("connected")
+		s.l.Lock()
+		defer s.l.Unlock()
 		connected = true
 		s.c.Broadcast()
 	})
