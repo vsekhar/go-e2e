@@ -18,7 +18,7 @@ FROM go-wasm AS clientbuilder
 ADD web /web
 WORKDIR /web
 RUN go get -d ./...
-RUN go build -o /web/app.wasm /web/app.go
+RUN go build -o /web/app.wasm .
 
 FROM golang:1.10-alpine AS serverbuilder
 ADD server /go/src/server
