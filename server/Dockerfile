@@ -15,10 +15,10 @@ ENV GOOS=js
 ENV GOARCH=wasm
 
 FROM go-wasm AS clientbuilder
-ADD client /client
-WORKDIR /client
+ADD web /web
+WORKDIR /web
 RUN go get -d ./...
-RUN go build -o /app.wasm /client/app.go
+RUN go build -o /web/app.wasm /web/app.go
 
 FROM golang:1.10-alpine AS serverbuilder
 ADD server /go/src/server
@@ -26,6 +26,6 @@ RUN go install server
 
 FROM alpine:latest
 COPY --from=serverbuilder /go/bin/server .
-COPY --from=clientbuilder /client /client
+COPY --from=clientbuilder /web /web
 ENV PORT 8080
-CMD ["./server", "-path=./client"]
+CMD ["./server", "-path=/web"]
