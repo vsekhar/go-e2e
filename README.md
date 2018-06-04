@@ -24,20 +24,17 @@ IDEs will need to be configured to use this compiler. For VS Code, add the follo
 
 See https://blog.lazyhacker.com/2018/05/webassembly-wasm-with-go.html for details on setting up the Go WASM compiler.
 
-# Start up
+# Server
 
-Build the WASM portion of the client:
-
-```bash
-$ cd client
-$ ./build.sh
-```
-
-Start the server:
+From the repo root, build the server container and run it with host networking:
 
 ```bash
-$ go run server/server.go -path=client
+$ docker build -f server/DockerFile -t server .
+...
+$ docker run --network=host server
 ```
+
+Use CTRL-C to terminate the server.
 
 # Web client
 
