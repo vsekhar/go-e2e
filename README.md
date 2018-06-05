@@ -12,7 +12,7 @@ From the repo root, build the server container and run it with host networking:
 ```bash
 $ docker build -f server/DockerFile -t server .
 ...
-$ docker run --network=host server
+$ docker run --rm --network=host server
 ```
 
 Use CTRL-C to terminate the server.
