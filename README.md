@@ -33,6 +33,7 @@ Run the container to copy the outputs. The following places the outputs where An
 
 ```bash
 $ OUTPUT_ABS_PATH=${PWD}/android/app/build/outputs
+$ mkdir -p $OUTPUT_ABS_PATH
 $ docker run --rm --user $UID:$(id -g) -v ${OUTPUT_ABS_PATH}:/outputs android
 ```
 
