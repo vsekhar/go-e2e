@@ -58,6 +58,8 @@
 					console.warn("exit code:", code);
 				}
 			};
+			this._callbackTimeouts = new Map();
+			this._nextCallbackTimeoutID = 1;
 
 			const mem = () => {
 				// The buffer may change when requesting more memory.
@@ -144,9 +146,22 @@
 						mem().setInt32(sp + 16, (msec % 1000) * 1000000, true);
 					},
 
-					// func scheduleCallback(delay int64)
+					// func scheduleCallback(delay int64) int32
 					"runtime.scheduleCallback": (sp) => {
-						setTimeout(() => { this._resolveCallbackPromise(); }, getInt64(sp + 8));
+						const id = this._nextCallbackTimeoutID;
+						this._nextCallbackTimeoutID++;
+						this._callbackTimeouts.set(id, setTimeout(
+							() => { this._resolveCallbackPromise(); },
+							getInt64(sp + 8) + 1, // setTimeout has been seen to fire up to 1 millisecond early
+						));
+						mem().setInt32(sp + 16, id, true);
+					},
+
+					// func clearScheduledCallback(id int32)
+					"runtime.clearScheduledCallback": (sp) => {
+						const id = mem().getInt32(sp + 8, true);
+						clearTimeout(this._callbackTimeouts.get(id));
+						this._callbackTimeouts.delete(id);
 					},
 
 					// func getRandomData(r []byte)
@@ -283,7 +298,7 @@
 				this._inst.exports.mem,
 				() => {
 					if (this.exited) {
-						throw new Error('bad callback: Go program has already exited (hint: use "select {}")');
+						throw new Error("bad callback: Go program has already exited");
 					}
 					setTimeout(this._resolveCallbackPromise, 0); // make sure it is asynchronous
 				},
@@ -370,11 +385,11 @@ if (!WebAssembly.instantiateStreaming) { // polyfill
 const go = new Go();
 let mod, inst;
 function load_wasm(path) {
-    WebAssembly.instantiateStreaming(fetch(path), go.importObject).then((result) => {
-        mod = result.module;
-        inst = result.instance;
+	WebAssembly.instantiateStreaming(fetch(path), go.importObject).then((result) => {
+		mod = result.module;
+		inst = result.instance;
 		console.clear();
 		go.run(inst);
 		inst = WebAssembly.instantiate(mod, go.importObject); // reset instance
-	});
+});
 }
