@@ -2,8 +2,6 @@ FROM golang:1.10-alpine AS go-wasm
 RUN apk add --no-cache git bash
 RUN git clone --depth 1 --branch wasm-wip https://github.com/neelance/go.git /go-wasm
 WORKDIR /go-wasm/src
-#ENV GOOS=linux
-#ENV GOARCH=amd64
 ENV CGO_ENABLED=0
 RUN ./make.bash
 # Need to skip os/exec/TestCredentialNoSetGroups, os/user/TestCurrent, os/user/TestLookup, os/user/TestLookupId
