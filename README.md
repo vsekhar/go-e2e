@@ -10,7 +10,7 @@ This is an experimental app written in Go on the server and client.
 From the repo root, build the server container and run it with host networking:
 
 ```bash
-$ docker build -f server/DockerFile -t server .
+$ docker build -f server/Dockerfile -t server .
 ...
 $ docker run --rm --network=host server
 ```
@@ -23,7 +23,18 @@ Navigate to `localhost:8080` in Chrome.
 
 # Android
 
-TBD
+From the repo root, build the Android container (which will also build the app):
+
+```bash
+$ docker build -f android/Dockerfile -t android .
+```
+
+Run the container to copy the outputs. The following places the outputs where Android Studio would have:
+
+```bash
+$ OUTPUT_ABS_PATH=${PWD}/android/app/build/outputs
+$ docker run --rm --user $UID:$(id -g) -v ${OUTPUT_ABS_PATH}:/outputs android
+```
 
 # iOS
 
